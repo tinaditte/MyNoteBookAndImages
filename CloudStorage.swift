@@ -9,12 +9,14 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseStorage
+import SDWebImage
 
 class CloudStorage{
 	
 	static var list = [ Note ]()
 	static let db = Firestore.firestore()
 	static let storage = Storage.storage()
+	static var downloadURL: String?
 	private static let notes = "Notes"
 	static var imageArr: [UIImage] = []
 	
@@ -35,25 +37,28 @@ class CloudStorage{
 		}
 	}
 	
-	static func uploadImage(imageData: Data, vc: AddScreenViewController){
-		let data = Data ()
-		let storageRef = storage.reference()
-		let imageref = storageRef.child(<#T##path: String##String#>)
-//		let storangeRef = storage.reference()
-//		let imageRef = storangeRef.child("Images")
-//		let uploadMetaData = StorageMetadata()
-//		uploadMetaData.contentType = "image/jpeg"
-//
-//		imageRef.putData(imageData, metadata: uploadMetaData) { (uploadMetaData, error) in
-//			if error != nil{
-//				print("Erroer while uploading pic")
-//				return
-//			}else{
-//				vc.imageView.image = UIImage(data: imageData)
-//				print("Meta data of uploaded image: \(String(describing: uploadMetaData))")
-//			}
-//		}
-		
+	static func uploadImgData(imageData: Data?, noteid: String){
+		guard let value = imageData as Data? else {return}
+		let storageRef = storage.reference(withPath: " ")
+		storageRef.putData(value, metadata: nil) { (metadata, error) in
+			if let error = error{
+				print("Error wihile uploading image data; \(error)")
+				return
+			}
+			storageRef.downloadURL { (url, error) in
+				if let error = error {
+					print(error)
+				}
+				if let url = url{
+					self.downloadURL = url.absoluteString
+					self.saveImgToDB(noteid: noteid)
+				}
+			}
+		}
+	}
+	
+	static func saveImgToDB(noteid: String){
+		db.collection(notes).document(noteid).updateData(["image" : downloadURL])
 	}
 	
 	static func getSize() -> Int{
@@ -74,12 +79,14 @@ class CloudStorage{
 					let head = map["head"] as! String
 					let body = map["body"] as! String
 					let image = map["image"] as? String ?? "empty"
-					let newNote = Note(id: note.documentID, head:head, body:body, img:image)
+					let url = map["url"] as? String ?? "empty"
+					let newNote = Note(id: note.documentID, head:head, body:body, img:image, imgurl: url)
 					self.list.append(newNote)
 				}
 				DispatchQueue.main.async {
 					tableView.reloadData()
 				}
+				
 			}
 		}
 	}
@@ -89,28 +96,30 @@ class CloudStorage{
 		docRef.delete()
 	}
 	
-	static func createNote(head: String, body: String, img: String) -> Note {
+	static func createNote(head: String, body: String, img: String, url: String) -> Note {
 		var map = [String: String]()
 		map["head"] = head
 		map["body"] = body
 		map["empty"] = img
+		map["url"] = url
 		
 		let docRef = db.collection(notes).addDocument(data: map)
 		
 		
-		let newNote = Note(id: docRef.documentID, head: head, body: body, img: img)
+		let newNote = Note(id: docRef.documentID, head: head, body: body, img: img, imgurl: url )
 		list.append(newNote)
 		print(newNote)
 		return newNote
 	}
 	
-	static func updateNote(index: Int, head: String, body:String){
+	static func updateNote(index: Int, head: String, body:String, image:String, url:String ){
 		let note = list[index]
 		
 		let docRef = db.collection(notes).document(note.id)
 		var map = [String:String]()
 		map["head"] = head
 		map["body"] = body
-		docRef.setData(map)
-	}
+		map["image"] = image
+		map["url"] = url
+		docRef.setData(map)}
 }

@@ -12,11 +12,13 @@ class Note{
 	var head:String
 	var body:String
 	var image:String
+	var imageURL : String
 	
-	init(id:String, head:String, body:String, img: String) {
+	init(id:String, head:String, body:String, img: String, imgurl: String) {
 		self.id = id
 		self.head = head
 		self.body = body
 		self.image = img
+		self.imageURL = imgurl
 	}
 }

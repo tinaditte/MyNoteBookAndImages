@@ -18,16 +18,23 @@ Upload image from an imageview, where the image was just dragged an image to sto
 */
 
 import UIKit
+import FirebaseFirestore
+import FirebaseStorage
+import SDWebImage
 
 class AddScreenViewController: UIViewController, UIImagePickerControllerDelegate & UINavigationControllerDelegate {
 	
-	//Fields
+	//Outlets
 	@IBOutlet weak var textField: UITextField!
 	@IBOutlet weak var textView: UITextView!
 	@IBOutlet weak var imageView: UIImageView!
+	
+	//Fields
+	var downloadURL: String?
 	var rowNumber = 0
 	var behaveAsNew = false
 	var imagePicker = UIImagePickerController()
+	private var newImageData: Data?
 	
     override func viewDidLoad() {
 		super.viewDidLoad()
@@ -38,7 +45,6 @@ class AddScreenViewController: UIViewController, UIImagePickerControllerDelegate
 			showNote()
 		}else if behaveAsNew == true{
 			print("new note mode entered in asvc")
-			
 		}
 	}
 	
@@ -54,24 +60,27 @@ class AddScreenViewController: UIViewController, UIImagePickerControllerDelegate
 		present(imagePicker, animated: true, completion: nil)
 	}
 	
-	private func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [String : Any]) {
-		if (info[UIImagePickerController.InfoKey.originalImage.rawValue] as? UIImage) != nil{
-			CloudStorage.uploadImage(imageData: (imageView.image?.jpegData(compressionQuality: 0.6))! , vc: self)
+	func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+		if let img = info[UIImagePickerController.InfoKey.originalImage] as? UIImage, let imageData = img.jpegData(compressionQuality: 0.8){
+			self.imageView.image = img
+			self.newImageData = imageData
 		}
-		imagePicker.dismiss(animated: true, completion: nil)
+		let note = CloudStorage.getNoteAt(index: rowNumber)
+		let noteid = note.id
+		CloudStorage.uploadImgData(imageData: newImageData, noteid: noteid)
+		self.dismiss(animated: true, completion: nil)
 	}
-	
+
 	func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
 		imagePicker.dismiss(animated: true, completion: nil)
 	}
 
 	//NOTE FUNCTIONS
-	
 	@IBAction func saveNote(_ sender: Any) {
 		if behaveAsNew == true{
 			insertNewNote()
 		}else if behaveAsNew == false{
-			CloudStorage.updateNote(index: rowNumber, head: textField.text!, body: textView.text!)
+			CloudStorage.updateNote(index: rowNumber, head: textField.text!, body: textView.text!, image: "empty", url: downloadURL ?? "empty")
 		}
 	}
 	
@@ -87,7 +96,7 @@ class AddScreenViewController: UIViewController, UIImagePickerControllerDelegate
 	}
 	
 	func insertNewNote(){
-		let newNote = CloudStorage.createNote(head: textField.text!, body: textView.text!, img: "empty")
+		let newNote = CloudStorage.createNote(head: textField.text!, body: textView.text!, img: "empty", url: "")
 		CloudStorage.list.append(newNote)
 	}
 }
